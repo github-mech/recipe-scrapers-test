@@ -9,7 +9,7 @@ def scrape_recipe(url: str):
     try:
         scraper = scrape_me(url)
 
-        # Safely get title and ingredients
+        # Helper function to handle missing fields
         def safe_get(method, default=None):
             try:
                 return method()
@@ -18,7 +18,21 @@ def scrape_recipe(url: str):
         
         return {
             "title": safe_get(scraper.title, "No title found"),
-            "ingredients": safe_get(scraper.ingredients, [])
+            "total_time": safe_get(scraper.total_time, 0),
+            "yields": safe_get(scraper.yields, "Unknown"),
+            "image": safe_get(scraper.image, ""),
+            "ingredients": safe_get(scraper.ingredients, []),
+            "instructions": safe_get(scraper.instructions, "No instructions found"),
+            "ratings": safe_get(scraper.ratings, 0),
+            "reviews": safe_get(scraper.reviews, 0),  # Handles the error here!
+            "host": safe_get(scraper.host, "Unknown"),
+            "author": safe_get(scraper.author, "Unknown"),
+            "category": safe_get(scraper.category, "Unknown"),
+            "cuisine": safe_get(scraper.cuisine, "Unknown"),
+            "nutrients": safe_get(scraper.nutrients, {}),
+            "description": safe_get(scraper.description, "No description available"),
+            "language": safe_get(scraper.language, "Unknown"),
+            "canonical_url": safe_get(scraper.canonical_url, url)  # Default to the input URL
         }
 
     except WebsiteNotImplementedError:
