@@ -1,6 +1,6 @@
 import requests
 from fastapi import FastAPI, HTTPException
-from recipe_scrapers import scrape_html
+from recipe_scrapers import scrape_me, scrape_html
 from recipe_scrapers._exceptions import WebsiteNotImplementedError, NoSchemaFoundInWildMode
 
 app = FastAPI()
@@ -12,24 +12,38 @@ HEADERS = {
 @app.get("/scrape/")
 def scrape_recipe(url: str):
     try:
-        # Fetch HTML content manually with headers to avoid 403 errors
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()  # Raise an HTTPError for failed requests (403, 404, etc.)
+        # Try standard method first
+        scraper = scrape_me(url)
 
-        # Use scrape_html() instead of scrape_me()
-        scraper = scrape_html(response.text, url=url)
-
-        return {
-            "title": scraper.title(),
-            "ingredients": scraper.ingredients(),
-            "instructions": scraper.instructions(),
-        }
-
-    except requests.exceptions.HTTPError as http_err:
-        raise HTTPException(status_code=response.status_code, detail=f"HTTP error: {http_err}")
-    except WebsiteNotImplementedError:
-        raise HTTPException(status_code=501, detail="Scraper for this website is not implemented.")
-    except NoSchemaFoundInWildMode:
-        raise HTTPException(status_code=502, detail="No schema found for this website.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        # If 403 Forbidden, manually fetch HTML and use scrape_html()
+        if "403" in str(e):
+            try:
+                response = requests.get(url, headers=HEADERS)
+                response.raise_for_status()  # Raise error for HTTP failures
+                
+                scraper = scrape_html(response.text)  # Parse from fetched HTML
+                
+            except requests.exceptions.HTTPError as http_err:
+                raise HTTPException(status_code=response.status_code, detail=f"HTTP error: {http_err}")
+            except Exception as err:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch site HTML: {err}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+    # Safely get title and ingredients
+    def safe_get(method, default=None):
+        try:
+            return method()
+        except NotImplementedError:
+            return default
+    
+    return {
+        "title": safe_get(scraper.title, "No title found"),
+        "total_time": safe_get(scraper.total_time, 0),
+        "yields": safe_get(scraper.yields, "Unknown"),
+        "image": safe_get(scraper.image, ""),
+        "ingredients": safe_get(scraper.ingredients, []),
+        "instructions": safe_get(scraper.instructions, "No instructions found"),
+        "author": safe_get(scraper.author, "Unknown")
+    }
