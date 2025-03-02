@@ -12,7 +12,7 @@ HEADERS = {
 @app.get("/scrape/")
 def scrape_recipe(url: str):
     try:
-        # Try standard method first
+        # Try the standard method first
         scraper = scrape_me(url)
 
     except Exception as e:
@@ -22,8 +22,9 @@ def scrape_recipe(url: str):
                 response = requests.get(url, headers=HEADERS)
                 response.raise_for_status()  # Raise error for HTTP failures
                 
-                scraper = scrape_html(response.text)  # Parse from fetched HTML
-                
+                # Pass both the HTML and the original URL to scrape_html()
+                scraper = scrape_html(response.text, org_url=url)
+
             except requests.exceptions.HTTPError as http_err:
                 raise HTTPException(status_code=response.status_code, detail=f"HTTP error: {http_err}")
             except Exception as err:
@@ -46,4 +47,4 @@ def scrape_recipe(url: str):
         "ingredients": safe_get(scraper.ingredients, []),
         "instructions": safe_get(scraper.instructions, "No instructions found"),
         "author": safe_get(scraper.author, "Unknown")
-    }
+    } 
