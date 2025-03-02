@@ -1,6 +1,6 @@
 import requests
 from fastapi import FastAPI, HTTPException
-from recipe_scrapers import scrape_me
+from recipe_scrapers import scrape_html
 from recipe_scrapers._exceptions import WebsiteNotImplementedError, NoSchemaFoundInWildMode
 
 app = FastAPI()
@@ -12,12 +12,12 @@ HEADERS = {
 @app.get("/scrape/")
 def scrape_recipe(url: str):
     try:
-        # Fetch HTML content manually with headers
+        # Fetch HTML content manually with headers to avoid 403 errors
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()  # Raise error for HTTP failures (403, 404, etc.)
-        
-        # Pass the raw HTML to recipe-scrapers
-        scraper = scrape_me(url, html=response.text)
+        response.raise_for_status()  # Raise an HTTPError for failed requests (403, 404, etc.)
+
+        # Use scrape_html() instead of scrape_me()
+        scraper = scrape_html(response.text, url=url)
 
         return {
             "title": scraper.title(),
